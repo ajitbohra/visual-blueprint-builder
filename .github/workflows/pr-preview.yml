@@ -12,6 +12,9 @@ jobs:
     steps:
       - name: Checkout PR Branch
         uses: actions/checkout@v3
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
 
       - name: Set up Git
         run: |
