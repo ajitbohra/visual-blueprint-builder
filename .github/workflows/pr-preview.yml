@@ -96,7 +96,7 @@ jobs:
                 }
               ]
             }`;
-            const minifiedBlueprintJson = JSON.stringify(JSON.parse(blueprintJson));
+            const minifiedBlueprintJson = btoa(blueprintJson);
 
             const previewUrl = `https://playground.wordpress.net/#${minifiedBlueprintJson}`;
             const body = `WordPress Playground PR [Preview](${previewUrl})`;
