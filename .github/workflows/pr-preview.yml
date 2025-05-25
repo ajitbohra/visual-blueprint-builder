@@ -2,10 +2,13 @@ name: PR Preview
 
 on:
   pull_request:
-    types: [opened, synchronize]
+    types: [opened, synchronize, closed]
 jobs:
   build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     permissions:
       pull-requests: write
       contents: write
@@ -24,9 +27,13 @@ jobs:
       
       - name: Delete PR Playground branch (if any)
         run: |
-          git fetch origin
-          git push origin --delete pr-${{ github.event.number }}-playground || echo "Branch does not exist"
-
+          if git ls-remote --exit-code --heads origin pr-${{ github.event.number }}-playground; then
+            echo "Remote branch 'pr-${{ github.event.number }}-playground' exists. Deleting..."
+            git push origin --delete pr-${{ github.event.number }}-playground
+          else
+            echo "Remote branch 'pr-test' does not exist."
+          fi
+         
       - name: Create new branch for Playground Preview
         run: |
           git checkout -b pr-${{ github.event.number }}-playground
@@ -45,11 +52,12 @@ jobs:
           git add -f build/
           git add -f vendor/
 
-      - name: Commit build files
+      - name: Commit and Push
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git commit -m "Add build and vendors folders for PR ${{ github.event.number }}"
+          git push origin pr-${{ github.event.number }}-playground --force
 
       - name: Share Playground detais on PR
         uses: actions/github-script@v7
