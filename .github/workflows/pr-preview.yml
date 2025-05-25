@@ -31,7 +31,7 @@ jobs:
             echo "Remote branch 'pr-${{ github.event.number }}-playground' exists. Deleting..."
             git push origin --delete pr-${{ github.event.number }}-playground
           else
-            echo "Remote branch 'pr-test' does not exist."
+            echo "Remote branch 'pr-${{ github.event.number }}-playground' does not exist."
           fi
          
       - name: Create new branch for Playground Preview
@@ -41,8 +41,9 @@ jobs:
       - name: Install NPM Dependencies
         run: npm install
 
-      - name: Install Composer Dependencies
-        run: composer install
+      - name: Install Composer dependencies
+        run: |
+          composer install --no-dev --no-interaction --prefer-dist
 
       - name: Run npm build
         run: npm run build
