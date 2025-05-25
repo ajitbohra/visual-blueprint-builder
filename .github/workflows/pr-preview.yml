@@ -55,6 +55,12 @@ jobs:
 
               const body = `WordPress Playground PR [Preview](https://playground.wordpress.net?plugin=https://github-proxy.com/proxy/?repo=ajitbohra/visual-blueprint-builder&branch=pr-${{github.event.number}}-playground)`
               
+              const comments = await github.rest.issues.listComments({
+                owner,
+                repo,
+                issue_number: prNumber,
+               });
+
               const existing = comments.data.find(c => c.body.includes("WordPress Playground PR [Preview]"));
               
               if (existing) {
