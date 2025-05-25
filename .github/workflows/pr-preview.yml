@@ -38,12 +38,12 @@ jobs:
         run: |
           git checkout -b pr-${{ github.event.number }}-playground
 
-      - name: Install NPM Dependencies
-        run: npm install
-
       - name: Install Composer dependencies
         run: |
           composer install --no-dev --no-interaction --prefer-dist
+
+      - name: Install NPM Dependencies
+        run: npm install
 
       - name: Run npm build
         run: npm run build
@@ -55,8 +55,6 @@ jobs:
 
       - name: Commit and Push
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
           git commit -m "Add build and vendors folders for PR ${{ github.event.number }}"
           git push origin pr-${{ github.event.number }}-playground --force
 
@@ -67,7 +65,9 @@ jobs:
               const { owner, repo } = context.repo;
               const prNumber = context.payload.pull_request.number;
 
-              const body = `WordPress Playground PR [Preview](https://playground.wordpress.net?plugin=https://github-proxy.com/proxy/?repo=ajitbohra/visual-blueprint-builder&branch=pr-${{github.event.number}}-playground)`
+              const pluginUrl = encodeURI(`https://github-proxy.com/proxy/?repo=${owner}/${repo}&branch=pr-${prNumber}-playground`).replace(/&/g, '&amp;');
+              const previewUrl = `https://playground.wordpress.net?plugin=${pluginUrl}`;
+              const body = `WordPress Playground PR [Preview](${previewUrl})`;
               
               const comments = await github.rest.issues.listComments({
                 owner,
