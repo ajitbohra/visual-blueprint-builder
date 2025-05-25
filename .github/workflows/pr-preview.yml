@@ -4,10 +4,11 @@ on:
   pull_request:
     types: [opened, synchronize]
 jobs:
-  build-pr-preview:
+  build:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
+      contents: write
 
     steps:
       - name: Checkout PR Branch
@@ -27,7 +28,8 @@ jobs:
           git push origin --delete pr-${{ github.event.number }}-playground || echo "Branch does not exist"
 
       - name: Create new branch for Playground Preview
-        run: git checkout -b pr-${{ github.event.number }}-playground
+        run: |
+          git checkout -b pr-${{ github.event.number }}-playground
 
       - name: Install NPM Dependencies
         run: npm install
