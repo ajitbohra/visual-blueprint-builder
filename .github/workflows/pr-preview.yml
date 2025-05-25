@@ -55,12 +55,23 @@ jobs:
 
               const body = `WordPress Playground PR [Preview](https://playground.wordpress.net?plugin=https://github-proxy.com/proxy/?repo=ajitbohra/visual-blueprint-builder&branch=pr-${{github.event.number}}-playground)`
               
-              await github.rest.issues.createComment({
-                owner,
-                repo,
-                issue_number: prNumber,
-                body,
-              });
+              const existing = comments.data.find(c => c.body.includes("WordPress Playground PR [Preview]"));
+              
+              if (existing) {
+                await github.rest.issues.updateComment({
+                  owner,
+                  repo,
+                  comment_id: existing.id,
+                  body,
+                });
+              } else {
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: prNumber,
+                  body,
+                });
+              }
 
       - name: Delete playground branch
         if: github.event_name == 'pull_request' && github.event.action == 'closed' || github.event_name == 'pull_request' && github.event.action == 'deleted'
