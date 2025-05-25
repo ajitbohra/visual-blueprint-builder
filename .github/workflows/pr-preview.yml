@@ -13,6 +13,16 @@ jobs:
       - name: Checkout PR Branch
         uses: actions/checkout@v2
 
+      - name: Set up Git
+        run: |
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+      
+      - name: Delete PR Playground branch (if any)
+        run: |
+          git fetch origin
+          git push origin --delete pr-${{ github.event.number }}-playground || echo "Branch does not exist"
+
       - name: Create new branch for Playground Preview
         run: git checkout -b pr-${{ github.event.number }}-playground
 
