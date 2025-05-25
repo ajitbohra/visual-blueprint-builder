@@ -61,37 +61,37 @@ jobs:
       - name: Share Playground detais on PR
         uses: actions/github-script@v7
         with:
-            script: |
-              const { owner, repo } = context.repo;
-              const prNumber = context.payload.pull_request.number;
+          script: |
+            const { owner, repo } = context.repo;
+            const prNumber = context.payload.pull_request.number;
 
-              const pluginUrl = encodeURI(`https://github-proxy.com/proxy/?repo=${owner}/${repo}&branch=pr-${prNumber}-playground`).replace(/&/g, '&amp;');
-              const previewUrl = `https://playground.wordpress.net?plugin=${pluginUrl}`;
-              const body = `WordPress Playground PR [Preview](${previewUrl})`;
-              
-              const comments = await github.rest.issues.listComments({
+            const pluginUrl = encodeURI(`https://github-proxy.com/proxy/?repo=${owner}/${repo}&branch=pr-${prNumber}-playground`).replace(/&/g, '&amp;');
+            const previewUrl = `https://playground.wordpress.net?plugin=${pluginUrl}`;
+            const body = `WordPress Playground PR [Preview](${previewUrl})`;
+            
+            const comments = await github.rest.issues.listComments({
+              owner,
+              repo,
+              issue_number: prNumber,
+              });
+
+            const existing = comments.data.find(c => c.body.includes("WordPress Playground PR [Preview]"));
+            
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
                 owner,
                 repo,
                 issue_number: prNumber,
-               });
-
-              const existing = comments.data.find(c => c.body.includes("WordPress Playground PR [Preview]"));
-              
-              if (existing) {
-                await github.rest.issues.updateComment({
-                  owner,
-                  repo,
-                  comment_id: existing.id,
-                  body,
-                });
-              } else {
-                await github.rest.issues.createComment({
-                  owner,
-                  repo,
-                  issue_number: prNumber,
-                  body,
-                });
-              }
+                body,
+              });
+            }
 
       - name: Delete playground branch
         if: github.event_name == 'pull_request' && github.event.action == 'closed' || github.event_name == 'pull_request' && github.event.action == 'deleted'
