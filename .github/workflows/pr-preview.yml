@@ -4,14 +4,14 @@ on:
   pull_request:
     types: [opened, synchronize]
 jobs:
-  deploy:
+  build-pr-preview:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
 
     steps:
       - name: Checkout PR Branch
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Set up Git
         run: |
