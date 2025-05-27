@@ -1,77 +1,70 @@
-name: PR Preview
+name: Playground Preview
 
 on:
   pull_request:
     types: [opened, synchronize, closed]
+
+env:
+  PR_BRANCH: pr-${{ github.event.number }}-playground
+  GIT_USER_NAME: GitHub Action
+  GIT_USER_EMAIL: action@github.com
+
 jobs:
-  build:
+  build-pull-request:
+    name: Generate WordPress Playground Preview
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: bash
+
     permissions:
       pull-requests: write
-      contents: write
 
     steps:
-      - name: Checkout PR Branch
+      - name: Checkout PR branch
         uses: actions/checkout@v3
         with:
           ref: ${{ github.head_ref }}
           fetch-depth: 0
 
-      - name: Set up Git
+      - name: Delete existing playground branch for PR (if any)
         run: |
-          git config --global user.name "GitHub Action"
-          git config --global user.email "action@github.com"
-      
-      - name: Delete PR Playground branch (if any)
-        run: |
-          if git ls-remote --exit-code --heads origin pr-${{ github.event.number }}-playground; then
-            echo "Remote branch 'pr-${{ github.event.number }}-playground' exists. Deleting..."
-            git push origin --delete pr-${{ github.event.number }}-playground
-          else
-            echo "Remote branch 'pr-${{ github.event.number }}-playground' does not exist."
+          if git ls-remote --exit-code --heads origin "$PR_BRANCH"; then
+            git push origin --delete "$PR_BRANCH"
           fi
-         
-      - name: Create new branch for Playground Preview
-        run: |
-          git checkout -b pr-${{ github.event.number }}-playground
 
-      - name: Install Composer dependencies
+      - name: Create new playground branch
+        run: git checkout -b "$PR_BRANCH"
+
+      - name: Install dependencies (Composer & NPM)
         run: |
           composer install --no-dev --no-interaction --prefer-dist
+          npm ci
 
-      - name: Install NPM Dependencies
-        run: npm install
-
-      - name: Run npm build
+      - name: Build project
         run: npm run build
 
-      - name: Add build files for Playground
+      - name: Set up Git
         run: |
-          git add -f build/
-          git add -f vendor/
+          git config --global user.name "$GIT_USER_NAME"
+          git config --global user.email "$GIT_USER_EMAIL"
 
-      - name: Commit and Push
+      - name: Commit and Push build files for playground
         run: |
-          git commit -m "Add build and vendors folders for PR ${{ github.event.number }}"
-          git push origin pr-${{ github.event.number }}-playground --force
+          git add -f build/ vendor/
+          git commit -m "Add build and vendor files for PR ${{ github.event.number }}"
+          git push origin "$PR_BRANCH" --force
 
-      - name: Share Playground detais on PR
+      - name: Post Playground preview details (create or update commit)
         uses: actions/github-script@v7
         with:
           script: |
             const { owner, repo } = context.repo;
             const prNumber = context.payload.pull_request.number;
+            const branch = `pr-${prNumber}-playground`;
 
-            const blueprintJson = `{
+            const blueprint = {
               "$schema": "https://playground.wordpress.net/blueprint-schema.json",
               "landingPage": "/wp-admin/post-new.php?post_type=blueprint",
               "login": true,
-              "features": {
-                "networking": true
-              },
+              "features": { "networking": true },
               "steps": [
                 {
                   "step": "updateUserMeta",
@@ -83,49 +76,46 @@ jobs:
                 },
                 {
                   "step": "setSiteOptions",
-                  "options": {
-                    "blogname": "Visual Blueprint Builder"
-                  }
+                  "options": { "blogname": "Visual Blueprint Builder" }
                 },
                 {
                   "step": "installPlugin",
                   "pluginData": {
                     "resource": "url",
-                    "url": "https://github-proxy.com/proxy/?repo=${owner}/${repo}&branch=pr-${prNumber}-playground"
+                    "url": `https://github-proxy.com/proxy/?repo=${owner}/${repo}&branch=${branch}`
                   }
                 }
               ]
-            }`;
-            const minifiedBlueprintJson = btoa(blueprintJson);
+            };
 
-            const previewUrl = `https://playground.wordpress.net/#${minifiedBlueprintJson}`;
-            const body = `WordPress Playground PR [Preview](${previewUrl})`;
-            
+            const encoded = Buffer.from(JSON.stringify(blueprint)).toString('base64');
+            const previewUrl = `https://playground.wordpress.net/#${encoded}`;
+            const commentBody = `WordPress Playground PR [Preview](${previewUrl})`;
+
             const comments = await github.rest.issues.listComments({
               owner,
               repo,
               issue_number: prNumber,
-              });
+            });
 
             const existing = comments.data.find(c => c.body.includes("WordPress Playground PR [Preview]"));
-            
+
             if (existing) {
               await github.rest.issues.updateComment({
                 owner,
                 repo,
                 comment_id: existing.id,
-                body,
+                body: commentBody,
               });
             } else {
               await github.rest.issues.createComment({
                 owner,
                 repo,
                 issue_number: prNumber,
-                body,
+                body: commentBody,
               });
             }
 
-      - name: Delete playground branch
-        if: github.event_name == 'pull_request' && github.event.action == 'closed' || github.event_name == 'pull_request' && github.event.action == 'deleted'
-        run: |
-          git push origin --delete pr-${{ github.event.number }}-playground
+      - name: Delete Playground branch on PR close
+        if: github.event.action == 'closed'
+        run: git push origin --delete "$PR_BRANCH"
