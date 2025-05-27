@@ -10,7 +10,7 @@ permissions:
 
 env:
   PR_BUILD_BRANCH: playground-${{ github.event.number }}
-  GIT_USER_NAME: "Playground Preview"
+  GIT_USER_NAME: "GitHub Action"
   GIT_USER_EMAIL: "action@github.com"
 
 jobs:
@@ -53,6 +53,11 @@ jobs:
 
       - name: Build project
         run: npm run build
+
+      - name: Config Git
+        run: |
+          git config --global user.name "$GIT_USER_NAME"
+          git config --global user.email "$GIT_USER_EMAIL"
 
       - name: Commit and Push build files
         run: |
