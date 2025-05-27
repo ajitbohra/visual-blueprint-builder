@@ -67,7 +67,7 @@ jobs:
 
   post-preview-comment: 
     needs: commit-build-files
-    name: Generate and commit build files
+    name: Post Playgound Preview Comment
     runs-on: ubuntu-latest
     
     steps:
