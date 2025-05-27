@@ -10,30 +10,41 @@ permissions:
 
 env:
   PR_BUILD_BRANCH: playground-${{ github.event.number }}
-  GIT_USER_NAME: Playground Preview
-  GIT_USER_EMAIL: action@github.com
+  GIT_USER_NAME: "Playground Preview"
+  GIT_USER_EMAIL: "action@github.com"
 
 jobs:
-  build-pull-request: 
-    name: Generate PR Build
+  create-build-branch: 
+    name: Create PR Build Branch
     runs-on: ubuntu-latest
 
     steps:
+      - name: Delete existing playground branch
+        run: |
+          if git ls-remote --exit-code --heads origin "$PR_BUILD_BRANCH"; then
+            git push origin --delete "$PR_BUILD_BRANCH"
+          fi
+
       - name: Checkout PR branch
         uses: actions/checkout@v3
         with:
           ref: ${{ github.head_ref }}
           fetch-depth: 0
 
-      - name: Delete existing playground branch for PR (if any)
-        run: |
-          if git ls-remote --exit-code --heads origin "$PR_BUILD_BRANCH"; then
-            git push origin --delete "$PR_BUILD_BRANCH"
-          fi
-
-      - name: Create new playground branch
+      - name: Create Playground branch
         run: git checkout -b "$PR_BUILD_BRANCH"
 
+  commit-build-files: 
+    needs: create-build-branch
+    name: Generate and commit build files
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Config Git
+        run: |
+          git config --global user.name "$GIT_USER_NAME"
+          git config --global user.email "$GIT_USER_EMAIL"
+    
       - name: Install dependencies (Composer & NPM)
         run: |
           composer install --no-dev --no-interaction --prefer-dist
@@ -42,81 +53,87 @@ jobs:
       - name: Build project
         run: npm run build
 
-      - name: Set up Git
-        run: |
-          git config --global user.name "$GIT_USER_NAME"
-          git config --global user.email "$GIT_USER_EMAIL"
-
-      - name: Commit and Push build files for playground
+      - name: Commit and Push build files
         run: |
           git add -f build/ vendor/
-          git commit -m "Add build and vendor files for PR ${{ github.event.number }}"
+          git commit -m "Add files"
           git push origin "$PR_BUILD_BRANCH" --force
 
-      - name: Post Playground preview comment (create or update)
+  post-preview-comment: 
+    needs: commit-build-files
+    name: Generate and commit build files
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Post preview comment (create or update)
         uses: actions/github-script@v7
         with:
-          script: |
-            const { owner, repo } = context.repo;
-            const prNumber = context.payload.pull_request.number;
-            const branch = `pr-${prNumber}-playground`;
+              script: |
+                const { owner, repo } = context.repo;
+                const prNumber = context.payload.pull_request.number;
+                const branch = `pr-${prNumber}-playground`;
 
-            const blueprint = {
-              "$schema": "https://playground.wordpress.net/blueprint-schema.json",
-              "landingPage": "/wp-admin/post-new.php?post_type=blueprint",
-              "login": true,
-              "features": { "networking": true },
-              "steps": [
-                {
-                  "step": "updateUserMeta",
-                  "meta": {
-                    "admin_color": "modern",
-                    "show_welcome_panel": 0
-                  },
-                  "userId": 1
-                },
-                {
-                  "step": "setSiteOptions",
-                  "options": { "blogname": "Visual Blueprint Builder" }
-                },
-                {
-                  "step": "installPlugin",
-                  "pluginData": {
-                    "resource": "url",
-                    "url": `https://github-proxy.com/proxy/?repo=${owner}/${repo}&branch=${branch}`
-                  }
+                const blueprint = {
+                  "$schema": "https://playground.wordpress.net/blueprint-schema.json",
+                  "landingPage": "/wp-admin/post-new.php?post_type=blueprint",
+                  "login": true,
+                  "features": { "networking": true },
+                  "steps": [
+                    {
+                      "step": "updateUserMeta",
+                      "meta": {
+                        "admin_color": "modern",
+                        "show_welcome_panel": 0
+                      },
+                      "userId": 1
+                    },
+                    {
+                      "step": "setSiteOptions",
+                      "options": { "blogname": "Visual Blueprint Builder" }
+                    },
+                    {
+                      "step": "installPlugin",
+                      "pluginData": {
+                        "resource": "url",
+                        "url": `https://github-proxy.com/proxy/?repo=${owner}/${repo}&branch=${branch}`
+                      }
+                    }
+                  ]
+                };
+
+                const encoded = Buffer.from(JSON.stringify(blueprint)).toString('base64');
+                const previewUrl = `https://playground.wordpress.net/#${encoded}`;
+                const commentBody = `WordPress Playground PR [Preview](${previewUrl})`;
+
+                const comments = await github.rest.issues.listComments({
+                  owner,
+                  repo,
+                  issue_number: prNumber,
+                });
+
+                const existing = comments.data.find(c => c.body.includes("WordPress Playground PR [Preview]"));
+
+                if (existing) {
+                  await github.rest.issues.updateComment({
+                    owner,
+                    repo,
+                    comment_id: existing.id,
+                    body: commentBody,
+                  });
+                } else {
+                  await github.rest.issues.createComment({
+                    owner,
+                    repo,
+                    issue_number: prNumber,
+                    body: commentBody,
+                  });
                 }
-              ]
-            };
-
-            const encoded = Buffer.from(JSON.stringify(blueprint)).toString('base64');
-            const previewUrl = `https://playground.wordpress.net/#${encoded}`;
-            const commentBody = `WordPress Playground PR [Preview](${previewUrl})`;
-
-            const comments = await github.rest.issues.listComments({
-              owner,
-              repo,
-              issue_number: prNumber,
-            });
-
-            const existing = comments.data.find(c => c.body.includes("WordPress Playground PR [Preview]"));
-
-            if (existing) {
-              await github.rest.issues.updateComment({
-                owner,
-                repo,
-                comment_id: existing.id,
-                body: commentBody,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner,
-                repo,
-                issue_number: prNumber,
-                body: commentBody,
-              });
-            }
-
-      - name: Delete Playground branch on PR close
-        if: github.event.action == 'closed'
+  
+  remove-preview-branch: 
+    if: github.event.action == 'closed'
+    name: Delete preview branch
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Delete Playground branch on PR close/merge
         run: git push origin --delete "$PR_BUILD_BRANCH"
