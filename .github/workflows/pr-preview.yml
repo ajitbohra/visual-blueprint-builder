@@ -40,10 +40,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Config Git
-        run: |
-          git config --global user.name "$GIT_USER_NAME"
-          git config --global user.email "$GIT_USER_EMAIL"
+      - name: Checkout preview branch
+        uses: actions/checkout@v3
+        with:
+          ref: $PR_BUILD_BRANCH
+          fetch-depth: 0  
     
       - name: Install dependencies (Composer & NPM)
         run: |
@@ -52,6 +53,11 @@ jobs:
 
       - name: Build project
         run: npm run build
+
+      - name: Config Git
+        run: |
+          git config --global user.name "$GIT_USER_NAME"
+          git config --global user.email "$GIT_USER_EMAIL"
 
       - name: Commit and Push build files
         run: |
