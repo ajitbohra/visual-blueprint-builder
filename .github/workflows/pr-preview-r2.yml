@@ -1,0 +1,127 @@
+name: PR Preview - On Playground via R2
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  pull-requests: write
+
+env:
+  PR_BUILD: pr-build-${{ github.event.pull_request.number }}.zip
+  CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+  CLOUDFLARE_R2_BUCKET: ${{ secrets.CLOUDFLARE_R2_BUCKET }}
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  R2_UPLOAD_URL: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com/${{ secrets.CLOUDFLARE_R2_BUCKET }}
+  R2_ASSET: https://pub-291e873137f04b3a93316bd06776642f.r2.dev/${{ secrets.CLOUDFLARE_R2_BUCKET }}/${{PR_BUILD}}
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Set PR Number
+      id: pr
+      run: echo "pr_number=${{ github.event.pull_request.number }}" >> $GITHUB_ENV
+
+    - name: Check and Delete Existing R2 ZIP
+      run: |
+        echo "Checking for existing build at $R2_UPLOAD_URL/$PR_BUILD"
+        response=$(curl -s -o /dev/null -w "%{http_code}" -X HEAD -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$R2_UPLOAD_URL/$PR_BUILD")
+        if [ "$response" == "200" ]; then
+          echo "Build exists. Deleting..."
+          curl -X DELETE -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$R2_UPLOAD_URL/$PR_BUILD"
+        else
+          echo "No existing build found."
+        fi
+
+    - name: Checkout PR branch
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.ref }}
+
+    - name: Install Dependencies
+      run: |
+        composer install --no-dev --optimize-autoloader
+        npm ci
+
+    - name: Build Files
+      run: npm run build
+
+    - name: Create ZIP Archive
+      run: |
+        zip -r $PR_BUILD . -x "node_modules/*" ".git/*" ".github/*"
+
+    - name: Upload ZIP to Cloudflare R2
+      run: |
+        curl -X PUT -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+             -H "Content-Type: application/zip" \
+             --upload-file "$PR_BUILD" \
+             "$R2_UPLOAD_URL/$PR_BUILD"
+
+    - name: Post preview comment (create or update)
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const { owner, repo } = context.repo;
+          const prNumber = context.payload.pull_request.number;
+
+          const blueprint = {
+            "$schema": "https://playground.wordpress.net/blueprint-schema.json",
+            "landingPage": "/wp-admin/post-new.php?post_type=blueprint",
+            "login": true,
+            "features": { "networking": true },
+            "steps": [
+              {
+                "step": "updateUserMeta",
+                "meta": {
+                  "admin_color": "modern",
+                  "show_welcome_panel": 0
+                },
+                "userId": 1
+              },
+              {
+                "step": "setSiteOptions",
+                "options": { "blogname": "Visual Blueprint Builder" }
+              },
+              {
+                "step": "installPlugin",
+                "pluginData": {
+                  "resource": "url",
+                  "url": `${R2_ASSET}`
+                }
+              }
+            ]
+          };
+
+          const encoded = Buffer.from(JSON.stringify(blueprint)).toString('base64');
+          const previewUrl = `https://playground.wordpress.net/#${encoded}`;
+          const commentBody = `
+            <!-- WordPress Playground PR Preview -->
+            ⚡️WordPress Playground - [Preview](${previewUrl})
+            🚀 Build zip file - [Download](${R2_ASSET})
+          `;
+
+          const comments = await github.rest.issues.listComments({
+            owner,
+            repo,
+            issue_number: prNumber,
+          });
+
+          const existing = comments.data.find(c => c.body.includes("<!-- WordPress Playground PR Preview -->"));
+
+          if (existing) {
+            await github.rest.issues.updateComment({
+              owner,
+              repo,
+              comment_id: existing.id,
+              body: commentBody,
+            });
+          } else {
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: prNumber,
+              body: commentBody,
+            });
+          }
