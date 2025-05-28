@@ -88,7 +88,7 @@ jobs:
                 "step": "installPlugin",
                 "pluginData": {
                   "resource": "url",
-                  "url": `${R2_ASSET}`
+                  "url": `${env.R2_ASSET}`
                 }
               }
             ]
@@ -99,7 +99,7 @@ jobs:
           const commentBody = `
             <!-- WordPress Playground PR Preview -->
             ⚡️WordPress Playground - [Preview](${previewUrl})
-            🚀 Build zip file - [Download](${R2_ASSET})
+            🚀 Build zip file - [Download](${env.R2_ASSET})
           `;
 
           const comments = await github.rest.issues.listComments({
