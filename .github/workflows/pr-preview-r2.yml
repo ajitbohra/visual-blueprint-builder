@@ -9,10 +9,10 @@ permissions:
 
 env:
   PR_BUILD: pr-build-${{ github.event.pull_request.number }}.zip
-  R2_ASSET: https://pub-291e873137f04b3a93316bd06776642f.r2.dev/${{ secrets.CLOUDFLARE_R2_BUCKET }}/pr-build-${{ github.event.pull_request.number }}.zip}
 
 jobs:
   build-and-upload:
+    name: Build and generate playground demo for PR
     runs-on: ubuntu-latest
 
     steps:
@@ -65,6 +65,9 @@ jobs:
         script: |
           const { owner, repo } = context.repo;
           const prNumber = context.payload.pull_request.number;
+          const r2Base = 'https://pub-291e873137f04b3a93316bd06776642f.r2.dev';
+          const zipFile = `pr-build-${prNumber}.zip`;
+          const zip = `${r2base}/${secrets.CLOUDFLARE_R2_BUCKET}/${zipFile}`;
 
           const blueprint = {
             "$schema": "https://playground.wordpress.net/blueprint-schema.json",
@@ -77,7 +80,7 @@ jobs:
                 "meta": {
                   "admin_color": "modern",
                   "show_welcome_panel": 0
-                },
+                },X
                 "userId": 1
               },
               {
