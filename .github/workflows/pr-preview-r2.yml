@@ -9,10 +9,6 @@ permissions:
 
 env:
   PR_BUILD: pr-build-${{ github.event.pull_request.number }}.zip
-  CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-  CLOUDFLARE_R2_BUCKET: ${{ secrets.CLOUDFLARE_R2_BUCKET }}
-  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-  R2_UPLOAD_URL: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com/${{ secrets.CLOUDFLARE_R2_BUCKET }}
   R2_ASSET: https://pub-291e873137f04b3a93316bd06776642f.r2.dev/${{ secrets.CLOUDFLARE_R2_BUCKET }}/pr-build-${{ github.event.pull_request.number }}.zip}
 
 jobs:
@@ -20,21 +16,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Set PR Number
-      id: pr
-      run: echo "pr_number=${{ github.event.pull_request.number }}" >> $GITHUB_ENV
-
-    - name: Check and Delete Existing R2 ZIP
-      run: |
-        echo "Checking for existing build at $R2_UPLOAD_URL/$PR_BUILD"
-        response=$(curl -s -o /dev/null -w "%{http_code}" -X HEAD -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$R2_UPLOAD_URL/$PR_BUILD")
-        if [ "$response" == "200" ]; then
-          echo "Build exists. Deleting..."
-          curl -X DELETE -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$R2_UPLOAD_URL/$PR_BUILD"
-        else
-          echo "No existing build found."
-        fi
-
     - name: Checkout PR branch
       uses: actions/checkout@v4
       with:
@@ -52,12 +33,31 @@ jobs:
       run: |
         zip -r $PR_BUILD . -x "node_modules/*" ".git/*" ".github/*"
 
+    - name: Configure AWS CLI for Cloudflare R2
+      run: |
+        aws configure set aws_access_key_id ${{ secrets.R2_ACCESS_KEY_ID }}
+        aws configure set aws_secret_access_key ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        aws configure set default.region auto
+        aws configure set default.output json
+      env:
+        AWS_EC2_METADATA_DISABLED: true
+
+    - name: Check and Delete Existing R2 ZIP
+      run: |
+        ENDPOINT="https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+        BUCKET="${{ secrets.CLOUDFLARE_R2_BUCKET }}"
+        FILE="$PR_BUILD"
+        if aws s3api head-object --bucket "$BUCKET" --key "$FILE" --endpoint-url "$ENDPOINT"; then
+          echo "File exists. Deleting..."
+          aws s3 rm s3://$BUCKET/$FILE --endpoint-url "$ENDPOINT"
+        else
+          echo "File does not exist. Continuing..."
+        fi
+
     - name: Upload ZIP to Cloudflare R2
       run: |
-        curl -X PUT -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-             -H "Content-Type: application/zip" \
-             --upload-file "$PR_BUILD" \
-             "$R2_UPLOAD_URL/$PR_BUILD"
+        ENDPOINT="https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+        aws s3 cp "$PR_BUILD" s3://${{ secrets.CLOUDFLARE_R2_BUCKET }}/$PR_BUILD --endpoint-url "$ENDPOINT"
 
     - name: Post preview comment (create or update)
       uses: actions/github-script@v7
