@@ -13,7 +13,7 @@ env:
   CLOUDFLARE_R2_BUCKET: ${{ secrets.CLOUDFLARE_R2_BUCKET }}
   CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
   R2_UPLOAD_URL: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com/${{ secrets.CLOUDFLARE_R2_BUCKET }}
-  R2_ASSET: https://pub-291e873137f04b3a93316bd06776642f.r2.dev/${{ secrets.CLOUDFLARE_R2_BUCKET }}/${{PR_BUILD}}
+  R2_ASSET: https://pub-291e873137f04b3a93316bd06776642f.r2.dev/${{ secrets.CLOUDFLARE_R2_BUCKET }}/pr-build-${{ github.event.pull_request.number }}.zip}
 
 jobs:
   build-and-upload:
