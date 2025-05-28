@@ -67,7 +67,7 @@ jobs:
           const prNumber = context.payload.pull_request.number;
           const r2Base = 'https://pub-291e873137f04b3a93316bd06776642f.r2.dev';
           const zipFile = `pr-build-${prNumber}.zip`;
-          const zipUrl = `${r2base}/${secrets.CLOUDFLARE_R2_BUCKET}/${zipFile}`;
+          const zipUrl = `${r2Base}/${secrets.CLOUDFLARE_R2_BUCKET}/${zipFile}`;
 
           const blueprint = {
             "$schema": "https://playground.wordpress.net/blueprint-schema.json",
@@ -80,7 +80,7 @@ jobs:
                 "meta": {
                   "admin_color": "modern",
                   "show_welcome_panel": 0
-                },X
+                },
                 "userId": 1
               },
               {
@@ -91,7 +91,7 @@ jobs:
                 "step": "installPlugin",
                 "pluginData": {
                   "resource": "url",
-                  "url": `"${zipUrl}"`
+                  "url": zipUrl
                 }
               }
             ]
@@ -102,7 +102,7 @@ jobs:
           const commentBody = `
             <!-- WordPress Playground PR Preview -->
             ⚡️WordPress Playground - [Preview](${previewUrl})
-            🚀 Build zip file - [Download](${env.R2_ASSET})
+            🚀 Build zip file - [Download](${zipUrl})
           `;
 
           const comments = await github.rest.issues.listComments({
