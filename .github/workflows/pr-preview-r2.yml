@@ -9,6 +9,7 @@ permissions:
 
 env:
   PR_BUILD: pr-build-${{ github.event.pull_request.number }}.zip
+  CLOUDFLARE_R2_BUCKET: ${{ secrets.CLOUDFLARE_R2_BUCKET }}
 
 jobs:
   build-and-upload:
@@ -67,7 +68,7 @@ jobs:
           const prNumber = context.payload.pull_request.number;
           const r2Base = 'https://pub-291e873137f04b3a93316bd06776642f.r2.dev';
           const zipFile = `pr-build-${prNumber}.zip`;
-          const zipUrl = `${r2Base}/${secrets.CLOUDFLARE_R2_BUCKET}/${zipFile}`;
+          const zipUrl = `${r2Base}/${process.env.secrets.CLOUDFLARE_R2_BUCKET}/${zipFile}`;
 
           const blueprint = {
             "$schema": "https://playground.wordpress.net/blueprint-schema.json",
