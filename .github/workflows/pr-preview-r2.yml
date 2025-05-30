@@ -1,4 +1,4 @@
-name: Playground Preview via R2
+name: Playground Preview via Cloudflare R2
 
 on:
   pull_request:
