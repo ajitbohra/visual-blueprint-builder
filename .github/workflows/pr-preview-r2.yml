@@ -86,7 +86,7 @@ jobs:
               },
               {
                 "step": "setSiteOptions",
-                "options": { "blogname": "Visual Blueprint Builder" }
+                "options": { "blogname": `${owner}/${repo} - PR ${prNumber}` }
               },
               {
                 "step": "installPlugin",
@@ -101,9 +101,11 @@ jobs:
           const encoded = Buffer.from(JSON.stringify(blueprint)).toString('base64');
           const previewUrl = `https://playground.wordpress.net/#${encoded}`;
           const commentBody = `
-            <!-- WordPress Playground PR Preview -->
-            ⚡️WordPress Playground - [Preview](${previewUrl})
-            🚀 Build zip file - [Download](${zipUrl})
+            <!-- WordPress Playground PR Preview - Cloudflare R2 -->
+            ### Preview via Cloudflare R2 Storage
+
+            ⚡️WordPress Playground [Preview](${previewUrl})
+            🚀 Build zip file [Download](${zipUrl})
           `;
 
           const comments = await github.rest.issues.listComments({
@@ -112,7 +114,7 @@ jobs:
             issue_number: prNumber,
           });
 
-          const existing = comments.data.find(c => c.body.includes("<!-- WordPress Playground PR Preview -->"));
+          const existing = comments.data.find(c => c.body.includes("<!-- WordPress Playground PR Preview - Cloudflare R2 -->"));
 
           if (existing) {
             await github.rest.issues.updateComment({
