@@ -1,4 +1,4 @@
-name: Playground Preview
+name: Playground Preview via build branch
 
 on:
   pull_request:
@@ -120,7 +120,7 @@ jobs:
               I will update this comment with the latest preview links as you push more changes to this PR.
 
               > [!NOTE]
-              > The preview sites are created using [WordPress Playground](https://wordpress.org/playground/). You can add content, edit settings, and test the themes as you would on a real site, but please note that changes are not saved between sessions.
+              > The preview sites are created using [WordPress Playground](https://wordpress.org/playground/). You can add content, edit settings, and test the pull request as you would on a real site, but please note that changes are not saved between sessions.
             `;
 
             const comments = await github.rest.issues.listComments({
