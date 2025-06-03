@@ -14,7 +14,8 @@ env:
   GIT_USER_EMAIL: "action@github.com"
 
 jobs:
-  create-build-branch: 
+  create-build-branch:
+    if: github.event.action != 'closed'
     name: Create PR Build Branch
     runs-on: ubuntu-latest
 
@@ -34,7 +35,8 @@ jobs:
       - name: Create Playground branch
         run: git checkout -b "$PR_BUILD_BRANCH"
 
-  commit-build-files: 
+  commit-build-files:
+    if: github.event.action != 'closed'
     needs: create-build-branch
     name: Generate and commit build files
     runs-on: ubuntu-latest
@@ -66,6 +68,7 @@ jobs:
           git push origin "$PR_BUILD_BRANCH" --force
 
   post-preview-comment: 
+    if: github.event.action != 'closed'
     needs: commit-build-files
     name: Post Playgound Preview Comment
     runs-on: ubuntu-latest
