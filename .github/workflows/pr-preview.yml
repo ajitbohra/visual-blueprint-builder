@@ -20,17 +20,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
       - name: Delete existing playground branch
         run: |
           if git ls-remote --exit-code --heads origin "$PR_BUILD_BRANCH"; then
             git push origin --delete "$PR_BUILD_BRANCH"
           fi
 
-      - name: Checkout PR branch
-        uses: actions/checkout@v3
-        with:
-          ref: ${{ github.head_ref }}
-          fetch-depth: 0
+      # - name: Checkout PR branch
+      #   uses: actions/checkout@v3
+      #   with:
+      #     ref: ${{ github.head_ref }}
+      #     fetch-depth: 0
 
       - name: Create Playground branch
         run: git checkout -b "$PR_BUILD_BRANCH"
@@ -156,5 +159,8 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Delete Playground branch on PR close/merge
-        run: git push origin --delete "$PR_BUILD_BRANCH"
+     - name: Checkout repository
+       uses: actions/checkout@v3
+
+     - name: Delete Playground branch on PR close/merge
+       run: git push origin --delete "$PR_BUILD_BRANCH"
