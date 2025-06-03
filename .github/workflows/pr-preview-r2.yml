@@ -2,7 +2,7 @@ name: Playground Preview via Cloudflare R2
 
 on:
   pull_request:
-    types: [opened, synchronize]
+    types: [opened, synchronize, closed]
 
 permissions:
   pull-requests: write
@@ -13,6 +13,7 @@ env:
 
 jobs:
   build-and-upload:
+    if: github.event.action != 'closed'
     name: Build and generate playground demo for PR
     runs-on: ubuntu-latest
 
@@ -136,3 +137,30 @@ jobs:
               body: commentBody,
             });
           }
+
+  remove-build: 
+    if: github.event.action == 'closed'
+    name: Delete build from R2
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Configure AWS CLI for Cloudflare R2
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.R2_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          aws configure set default.region auto
+          aws configure set default.output json
+        env:
+          AWS_EC2_METADATA_DISABLED: true
+
+      - name: Check and Delete Existing R2 ZIP
+        run: |
+          ENDPOINT="https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+          BUCKET="${{ secrets.CLOUDFLARE_R2_BUCKET }}"
+          FILE="$PR_BUILD"
+          if aws s3api head-object --bucket "$BUCKET" --key "$FILE" --endpoint-url "$ENDPOINT"; then
+            echo "File exists. Deleting..."
+            aws s3 rm s3://$BUCKET/$FILE --endpoint-url "$ENDPOINT"
+          else
+            echo "File does not exist. Continuing..."
+          fi
